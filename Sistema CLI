@@ -1,0 +1,50 @@
+////////////////////////////////////////////////////////////////////////////////////////////////
+//Código programado por Sergio Molina Muñoz, sergio@carterasdebolsa.com  www.carterasdebolsa.com
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// --- backtester settings ---  
+SetBacktestMode( backtestRegular);
+SetOption( "CommissionAmount", 0.00 );
+SetOption( "InitialEquity", 1000000 );
+SetTradeDelays( 1, 1, 0, 0 ); 
+SetOption( "MaxOpenLong", 1);
+SetOption( "MaxOpenPositions", 1 );
+SetOption( "AllowPositionShrinking", True );
+SetOption( "AllowSameBarExit", true ); 
+SetOption( "ReverseSignalForcesExit", True ); 
+SetOption( "HoldMinBars", 1 );
+RoundLotSize = 0.000001; 
+
+CLI=Foreign("USA","Close");
+len=BarsSince(CLI !=Ref(CLI,1));
+retCLI= 100 *  Nz( CLI / Ref( CLI, -len ) - 1 );
+retCLI= IIf(len==0, Ref(retCLI,-1),retCLI);
+
+Rebalance= Day()>=7 AND Day()<=13 AND DayOfWeek()==1;
+
+// --- set position sizes ---
+SetPositionSize( 100, spsPercentOfEquity );
+
+
+// --- rebalancing of positions ---
+Buy       =    retCLI>ref(retCLI,-len) AND  Rebalance;
+Sell      =    retCLI<=ref(retCLI,-len) AND Rebalance;
+Short     = Cover = 0;
+BuyPrice  = SellPrice = Open;
+
+Filter=1;
+AddColumn(retCLI,"retCLI");
+AddColumn(CLI,"CLI");
+AddColumn(Ref(CLI,1),"Ref(CLI,1)");
+AddColumn(len,"len");
+
+SetCustomBacktestProc("");
+if( Status("action") == actionPortfolio )
+{
+ bo = GetBacktesterObject();
+ bo.Backtest();
+ AddToComposite( bo.EquityArray, 
+                 "~~CLI", "X", 
+                 atcFlagDeleteValues | atcFlagEnableInPortfolio );
+}
